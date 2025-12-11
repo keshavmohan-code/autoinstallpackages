@@ -1,0 +1,25 @@
+{
+  "name": "@nykaa/sync-packages",
+  "version": "1.0.0",
+  "description": "Sync fe-core packages to nykaa_web_reloaded",
+  "main": "index.js",
+  "bin": {
+    "sync-nykaa-packages": "./bin/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keshavmohan-code/autoinstallpackages.git"
+  },
+  "scripts": {
+    "test": "node bin/cli.js"
+  },
+  "keywords": ["nykaa", "packages", "sync"],
+  "author": "",
+  "license": "ISC",
+  "preferGlobal": true,
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "fs-extra": "^11.1.1",
+    "prompts": "^2.4.2"
+  }
+}
