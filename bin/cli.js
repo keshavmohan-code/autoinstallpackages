@@ -62,10 +62,26 @@ async function syncPackagesToDestination(packagesSourcePath, packageDirs, destRe
   // Process each package
   for (const packageName of packageDirs) {
     const sourcePath = path.join(packagesSourcePath, packageName);
-    const destPath = path.join(packagesDestPath, packageName);
-
+    
     try {
-      // Remove existing package in destination if it exists
+      // Read package.json to get the actual package name
+      const packageJsonPath = path.join(sourcePath, 'package.json');
+      let finalPackageName = packageName; // Default to folder name
+      
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        
+        // Extract package name from @nykaa/packagename format
+        if (packageJson.name && packageJson.name.startsWith('@nykaa/')) {
+          finalPackageName = packageJson.name.replace('@nykaa/', '');
+        } else if (packageJson.name) {
+          finalPackageName = packageJson.name;
+        }
+      }
+      
+      const destPath = path.join(packagesDestPath, finalPackageName);
+
+      // Remove only the existing package that we're updating (not all packages)
       if (fs.existsSync(destPath)) {
         await fs.remove(destPath);
       }
