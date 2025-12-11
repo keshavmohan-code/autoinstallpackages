@@ -1,6 +1,6 @@
 # Nykaa Package Sync Tool
 
-An NPX tool to sync packages from `fe-core` to `nykaa_web_reloaded` for local development.
+An NPX tool to sync packages from `fe-core` to `nykaa_web_reloaded` and `beauty_dweb_reloaded` for local development.
 
 ## What it does
 
