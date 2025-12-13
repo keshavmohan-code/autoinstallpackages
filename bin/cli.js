@@ -16,11 +16,12 @@ const colors = {
 };
 
 const log = {
-  info: (msg) => console.log(`${colors.cyan}ℹ${colors.reset} ${msg}`),
-  success: (msg) => console.log(`${colors.green}✓${colors.reset} ${msg}`),
-  warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset} ${msg}`),
-  error: (msg) => console.log(`${colors.red}✗${colors.reset} ${msg}`),
-  step: (msg) => console.log(`${colors.bright}${msg}${colors.reset}`),
+  info: (msg) => console.log(`${colors.cyan}${colors.bright}ℹ${colors.reset} ${msg}`),
+  success: (msg) => console.log(`${colors.green}${colors.bright}✓${colors.reset} ${msg}`),
+  warning: (msg) => console.log(`${colors.yellow}${colors.bright}⚠${colors.reset} ${msg}`),
+  error: (msg) => console.log(`${colors.red}${colors.bright}✗${colors.reset} ${msg}`),
+  step: (msg) => console.log(`\n${colors.cyan}${colors.bright}${msg}${colors.reset}\n`),
+  bigStep: (msg) => console.log(`\n${colors.cyan}${colors.bright}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${msg}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}\n`),
 };
 
 // Default paths - can be overridden via command line args or config file
@@ -146,6 +147,88 @@ ${colors.cyan}╔═════════════════════
 
     log.success('Source paths validated successfully');
 
+    // Check if fe-core is a git repository
+    const gitPath = path.join(feCorePath, '.git');
+    if (fs.existsSync(gitPath)) {
+      log.bigStep('📋 STEP 1: STAGING CHANGES IN FE-CORE');
+      
+      try {
+        // Stage all changes in fe-core
+        execSync('git add .', { cwd: feCorePath, stdio: 'pipe' });
+        log.success('All changes staged successfully');
+        
+        // Show git status
+        const gitStatus = execSync('git status --short', { cwd: feCorePath, encoding: 'utf-8' });
+        if (gitStatus.trim()) {
+          log.info('Staged changes:');
+          console.log(gitStatus);
+        } else {
+          log.info('No changes to stage');
+        }
+      } catch (error) {
+        log.warning(`Git staging skipped: ${error.message}`);
+      }
+    }
+
+    // Build packages
+    log.bigStep('🔨 STEP 2: BUILDING PACKAGES');
+    
+    try {
+      // Check if package.json has a build script
+      const packageJsonPath = path.join(feCorePath, 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        
+        if (packageJson.scripts && packageJson.scripts.build) {
+          // Check if yarn exists
+          try {
+            execSync('yarn --version', { stdio: 'pipe' });
+          } catch {
+            throw new Error('Yarn is not installed. Please install yarn first.');
+          }
+          
+          // Run complete build sequence
+          log.info('Running: yarn');
+          execSync('yarn', { cwd: feCorePath, stdio: 'inherit' });
+          
+          log.info('Running: yarn clean:git');
+          execSync('yarn clean:git', { cwd: feCorePath, stdio: 'inherit' });
+          
+          log.info('Running: yarn clean:lib');
+          execSync('yarn clean:lib', { cwd: feCorePath, stdio: 'inherit' });
+          
+          log.info('Running: npm run bootstrap');
+          execSync('npm run bootstrap', { cwd: feCorePath, stdio: 'inherit' });
+          
+          log.info('Running: npm run build');
+          execSync('npm run build', { cwd: feCorePath, stdio: 'inherit' });
+          
+          log.success('Build completed successfully');
+        } else {
+          log.warning('No build script found in package.json, skipping build step');
+        }
+      } else {
+        log.warning('No package.json found, skipping build step');
+      }
+    } catch (error) {
+      log.error(`Build failed: ${error.message}`);
+      
+      // Ask user if they want to continue
+      const continueResponse = await prompts({
+        type: 'confirm',
+        name: 'continue',
+        message: 'Build failed. Do you want to continue with sync anyway?',
+        initial: false
+      });
+      
+      if (!continueResponse.continue) {
+        log.warning('Sync cancelled by user');
+        return;
+      }
+    }
+
+    log.bigStep('📦 STEP 3: PREPARING TO SYNC PACKAGES');
+
     // Get all package directories
     log.info('Reading packages from fe-core...');
     const packageDirs = fs.readdirSync(packagesSourcePath)
@@ -159,7 +242,9 @@ ${colors.cyan}╔═════════════════════
       return;
     }
 
-    log.info(`Found ${packageDirs.length} package(s)\n`);
+    log.info(`Found ${packageDirs.length} package(s)`);
+
+    log.bigStep('🎯 STEP 4: SELECT SYNC DESTINATION(S)');
 
     // Show interactive prompt for destination selection
     const response = await prompts({
@@ -183,7 +268,8 @@ ${colors.cyan}╔═════════════════════
       return;
     }
 
-    log.step(`\n✓ Selected ${response.destinations.length} destination(s)\n`);
+    log.success(`Selected ${response.destinations.length} destination(s)`);
+    log.bigStep('🚀 STEP 5: SYNCING PACKAGES');
 
     // Sync to each selected destination
     const results = [];
@@ -199,7 +285,7 @@ ${colors.cyan}╔═════════════════════
     }
 
     // Final summary
-    log.step('\n✨ Package sync completed!\n');
+    log.bigStep('✨ PACKAGE SYNC COMPLETED!');
     
     results.forEach(result => {
       if (result.failed === 0) {
@@ -208,8 +294,6 @@ ${colors.cyan}╔═════════════════════
         log.warning(`${result.name}: ${result.success} succeeded, ${result.failed} failed`);
       }
     });
-
-    log.warning('\nRemember to run yarn install in the destination repo(s) if needed.\n');
 
   } catch (error) {
     log.error(`\nError: ${error.message}\n`);
